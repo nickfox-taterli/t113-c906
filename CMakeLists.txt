@@ -8,7 +8,7 @@ set(CMAKE_LINK_DEPENDS_NO_SHARED 1)
 # ============================================================================
 # IMPORTANT: Please modify the toolchain path below according to your actual environment
 # ============================================================================
-set(TOOLCHAIN_PATH "/root/t113/lichee/rtos/tools/riscv64-elf-x86_64-20201104")
+set(TOOLCHAIN_PATH "/root/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0")
 set(CMAKE_C_COMPILER "${TOOLCHAIN_PATH}/bin/riscv64-unknown-elf-gcc")
 set(CMAKE_ASM_COMPILER "${TOOLCHAIN_PATH}/bin/riscv64-unknown-elf-gcc")
 set(CMAKE_OBJCOPY "${TOOLCHAIN_PATH}/bin/riscv64-unknown-elf-objcopy")
@@ -25,7 +25,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Compiler flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -Werror -Og -O0")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=rv64gcxthead")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=rv64imafdc")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcmodel=medany")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mabi=lp64d")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections")
@@ -52,7 +52,7 @@ include_directories(
 # Linker flags
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T ${CMAKE_CURRENT_SOURCE_DIR}/c906.ld")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nostdlib")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -march=rv64gcxthead")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -march=rv64imafdc")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mcmodel=medany")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mabi=lp64d")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Map=${CMAKE_BINARY_DIR}/${PROJECT_NAME}.map")
