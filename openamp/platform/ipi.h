@@ -2,6 +2,7 @@
 #define OPENAMP_PLATFORM_IPI_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /* Mailbox topology: ARM(0) <-> DSP(1) <-> C906(2) */
 #define MSGBOX_ARM_ID   0
@@ -22,6 +23,11 @@ struct msgbox {
 	uint32_t fifo_depth;
 	msgbox_rx_cb rx_cb;
 	void *rx_priv;
+	bool irq_registered;
+	uint32_t irq_count;
+	uint32_t rx_count;
+	uint32_t last_data;
+	uint32_t zero_data_cnt;
 };
 
 int msgbox_init(struct msgbox *mb, int local_id, int remote_id, int channel,

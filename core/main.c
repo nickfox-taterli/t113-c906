@@ -11,9 +11,7 @@
 #define LOG_TAG "main"
 #include "log.h"
 
-/* Global UART configuration */
-static uart_config_t uart_cfg;
-static struct openamp_platform openamp_ctx;
+TaskHandle_t g_openamp_task_handle = NULL;
 
 /**
  * main_task - Main FreeRTOS task
@@ -25,6 +23,13 @@ static void main_task(void *pvParameters)
 {
     (void)pvParameters;
     int ret;
+    uint32_t wake_total = 0;
+
+    static struct openamp_platform openamp_ctx;
+
+    g_openamp_task_handle = xTaskGetCurrentTaskHandle();
+    LOGI("OpenAMP task handle registered for mailbox IRQ wakeups (%p)",
+         g_openamp_task_handle);
 
     LOGI("OpenAMP: init begin");
     ret = platform_rproc_init(&openamp_ctx);
@@ -37,8 +42,18 @@ static void main_task(void *pvParameters)
 
     /* Task main loop */
     while (1) {
+        uint32_t n = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(20));
+        if (n) {
+            wake_total += n;
+            if (wake_total < 5 || (wake_total & 0x3F) == 0) {
+                LOGI("OpenAMP woke by mailbox IRQ (batch=%lu total=%lu)",
+                     (unsigned long)n, (unsigned long)wake_total);
+            } else {
+                LOGD("OpenAMP woke by IRQ (batch=%lu total=%lu)",
+                     (unsigned long)n, (unsigned long)wake_total);
+            }
+        }
         platform_poll(&openamp_ctx);
-        vTaskDelay(pdMS_TO_TICKS(1));
     }
 
 halt:
@@ -50,6 +65,8 @@ halt:
 
 static void low_level_init(void)
 {
+    static uart_config_t uart_cfg;
+    
     /* Initialize cache */
     CacheInitialize();
     InstructionCacheEnable();

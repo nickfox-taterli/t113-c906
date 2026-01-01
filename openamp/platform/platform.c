@@ -2,6 +2,7 @@
 #include "rsc_table.h"
 #include "cache.h"
 #include "delay.h"
+#include "irqs.h"
 #include "metal/utilities.h"
 #include <metal/alloc.h>
 #include <metal/list.h>
@@ -18,6 +19,7 @@
 
 #define VDEV_ID            0
 #define VRING_ROLE         VIRTIO_DEV_SLAVE
+/* Must match userspace tools (rpmsg_open / rpmsg_ping) */
 #define RPMSG_SERVICE_NAME "c906-echo"
 
 static void platform_rproc_remove(struct remoteproc *rproc);
@@ -246,6 +248,8 @@ int platform_rproc_init(struct openamp_platform *plat)
 	LOGI("msgbox ready (local=%d remote=%d local_n=%d remote_n=%d chan=%d)",
 	     priv->mbox.local_id, priv->mbox.remote_id,
 	     priv->mbox.local_n, priv->mbox.remote_n, priv->mbox.channel);
+	LOGI("msgbox will now signal via IRQ %d (CPU->RV) with polling as fallback",
+	     RISCV_MBOX_CPUX);
 
 	if (!remoteproc_init(&plat->rproc, &platform_ops, plat))
 	{

@@ -36,6 +36,6 @@ struct irq_regs;
 void plic_handle_irq(struct irq_regs *regs);
 
 /* Generic IRQ handler - provided by architecture layer */
-extern void generic_handle_irq(unsigned int irq);
+extern int generic_handle_irq(unsigned int irq);
 
 #endif /* PLIC_H */

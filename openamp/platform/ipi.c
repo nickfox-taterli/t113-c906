@@ -1,7 +1,13 @@
 #include "ipi.h"
 #include "rv_io.h"
 #include "delay.h"
+#include "irq.h"
+#include "irqs.h"
+#include "FreeRTOS.h"
+#include "task.h"
 #include <stddef.h>
+
+extern TaskHandle_t g_openamp_task_handle;
 
 #define LOG_TAG "msgbox"
 #include "log.h"
@@ -54,9 +60,57 @@ static inline uint32_t reg_bits_get(uintptr_t addr, uint32_t mask, uint32_t shif
 	return (v >> shift) & mask;
 }
 
+static inline uintptr_t msgbox_base(struct msgbox *mb, int id);
+
+static inline uint32_t msgbox_pending(struct msgbox *mb)
+{
+	uintptr_t read_base;
+
+	if (!mb)
+		return 0;
+	read_base = msgbox_base(mb, mb->local_id);
+	return reg_bits_get(read_base +
+			    SUNXI_MSGBOX_READ_IRQ_STATUS(mb->local_n),
+			    RD_IRQ_PEND_MASK, RD_IRQ_PEND_SHIFT(mb->channel));
+}
+
 static inline uintptr_t msgbox_base(struct msgbox *mb, int id)
 {
 	return mb->base[id];
+}
+
+static void msgbox_irq_handler(void *arg)
+{
+	struct msgbox *mb = (struct msgbox *)arg;
+	unsigned int loops = 0;
+
+	if (!mb)
+		return;
+
+	/* Drain every pending word to keep the line de-asserted */
+	do {
+		msgbox_poll(mb);
+		loops++;
+	} while (msgbox_pending(mb) && loops < 32);
+
+	mb->irq_count++;
+
+	if (mb->irq_count < 8 || (mb->irq_count & 0x3F) == 0) {
+		LOGI("IRQ%d fired #%u loops=%u rx_total=%u last=0x%x zero=%u pend=%u",
+		     RISCV_MBOX_CPUX, mb->irq_count, loops,
+		     mb->rx_count, mb->last_data, mb->zero_data_cnt,
+		     msgbox_pending(mb));
+	} else {
+		LOGD("IRQ%d handled loops=%u rx_tot=%u last=0x%x zero=%u",
+		     RISCV_MBOX_CPUX, loops, mb->rx_count, mb->last_data,
+		     mb->zero_data_cnt);
+	}
+
+	if (g_openamp_task_handle) {
+		BaseType_t hpw = pdFALSE;
+		vTaskNotifyGiveFromISR(g_openamp_task_handle, &hpw);
+		portYIELD_FROM_ISR(hpw);
+	}
 }
 
 int msgbox_init(struct msgbox *mb, int local_id, int remote_id, int channel,
@@ -76,6 +130,11 @@ int msgbox_init(struct msgbox *mb, int local_id, int remote_id, int channel,
 	mb->channel = channel;
 	mb->rx_cb = cb;
 	mb->rx_priv = priv;
+	mb->irq_registered = false;
+	mb->irq_count = 0;
+	mb->rx_count = 0;
+	mb->last_data = 0;
+	mb->zero_data_cnt = 0;
 
 	mb->local_n = coef_table[local_id][remote_id];
 	mb->remote_n = coef_table[remote_id][local_id];
@@ -96,8 +155,9 @@ int msgbox_init(struct msgbox *mb, int local_id, int remote_id, int channel,
 	reg_bits_set(msgbox_base(mb, local_id) +
 		     SUNXI_MSGBOX_READ_IRQ_ENABLE(mb->local_n),
 		     RD_IRQ_EN_MASK, RD_IRQ_EN_SHIFT(channel));
-	LOGI("step: local RX IRQ enabled (base=0x%lx n=%d p=%d)",
-	     (unsigned long)msgbox_base(mb, local_id), mb->local_n, channel);
+	LOGI("step: local RX IRQ enabled (base=0x%lx n=%d p=%d irq=%d)",
+	     (unsigned long)msgbox_base(mb, local_id), mb->local_n, channel,
+	     RISCV_MBOX_CPUX);
 
 	/* Clear stale pending bits and drain any data */
 	reg_bits_set(msgbox_base(mb, local_id) +
@@ -127,7 +187,15 @@ int msgbox_init(struct msgbox *mb, int local_id, int remote_id, int channel,
 		       0x3, 0);
 	LOGI("step: remote write threshold set to 1");
 
-	LOGI("init done");
+	if (irq_request(RISCV_MBOX_CPUX, msgbox_irq_handler, mb, "msgbox_rx") == 0) {
+		mb->irq_registered = true;
+		LOGI("irq %d registered for mailbox (CPU->RV)", RISCV_MBOX_CPUX);
+	} else {
+		LOGE("failed to register mailbox irq %d, fallback to polling",
+		     RISCV_MBOX_CPUX);
+	}
+
+	LOGI("init done (pending=%u)", msgbox_pending(mb));
 	return 0;
 }
 
@@ -170,41 +238,54 @@ int msgbox_send(struct msgbox *mb, uint32_t data)
 void msgbox_poll(struct msgbox *mb)
 {
 	uintptr_t read_base;
-	uint32_t pend;
-	static uint32_t last_vqid;
-	static unsigned int repeat;
+    uint32_t pend;
+    static uint32_t last_vqid;
+    static unsigned int repeat;
+    unsigned int drained = 0; /* count only non-zero (real) kicks for logs */
 
 	if (!mb)
 		return;
 
 	read_base = msgbox_base(mb, mb->local_id);
 
-	pend = reg_bits_get(read_base +
-			    SUNXI_MSGBOX_READ_IRQ_STATUS(mb->local_n),
-			    RD_IRQ_PEND_MASK, RD_IRQ_PEND_SHIFT(mb->channel));
-	if (!pend) {
-		/* HW quirk: read once even without pending */
-		(void)readl((void *)(read_base +
-				     SUNXI_MSGBOX_MSG_FIFO(mb->local_n,
-							   mb->channel)));
-		return;
-	}
+	do {
+		pend = reg_bits_get(read_base +
+				    SUNXI_MSGBOX_READ_IRQ_STATUS(mb->local_n),
+				    RD_IRQ_PEND_MASK, RD_IRQ_PEND_SHIFT(mb->channel));
+		if (!pend) {
+			/* HW quirk: read once even without pending */
+			(void)readl((void *)(read_base +
+					     SUNXI_MSGBOX_MSG_FIFO(mb->local_n,
+								   mb->channel)));
+			break;
+		}
 
-	{
 		uint32_t data = readl((void *)(read_base +
 					       SUNXI_MSGBOX_MSG_FIFO(mb->local_n,
 								     mb->channel)));
 		reg_bits_set(read_base + SUNXI_MSGBOX_READ_IRQ_STATUS(mb->local_n),
 			     RD_IRQ_PEND_MASK, RD_IRQ_PEND_SHIFT(mb->channel));
 
-		if (data != last_vqid) {
-			last_vqid = data;
-			repeat = 0;
-			// printf("MSGBOX recv: vqid=%u\n", data);
-		} else if ((++repeat % 1000) == 0) {
-			// printf("MSGBOX recv: vqid=%u (x%u)\n", data, repeat);
-		}
-		if (mb->rx_cb)
-			mb->rx_cb(mb->rx_priv, data);
-	}
+        /* vqid==0 is periodic vring0 kick from Linux; keep callbacks but skip logs */
+        if (data != 0) {
+            mb->last_data = data;
+            mb->rx_count++;
+            drained++;
+
+            if (data != last_vqid) {
+                last_vqid = data;
+                repeat = 0;
+            } else if ((++repeat % 1000) == 0) {
+            }
+        }
+
+        if (mb->rx_cb)
+            mb->rx_cb(mb->rx_priv, data);
+
+	} while (pend);
+
+    if (drained) {
+        LOGD("poll drained %u msg(s), last=0x%x total_rx=%u pend=%u",
+             drained, mb->last_data, mb->rx_count, msgbox_pending(mb));
+    }
 }

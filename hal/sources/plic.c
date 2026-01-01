@@ -7,7 +7,7 @@
 #include "irqs.h"
 
 /* Generic IRQ handler - provided by architecture layer */
-extern void generic_handle_irq(unsigned int irq);
+extern int generic_handle_irq(unsigned int irq);
 
 #define NR_CPUS             1
 
@@ -168,11 +168,9 @@ void plic_init(void)
         return;
     }
 
-    // 1 CPU, but 2 target
-    // cpuid           target
-    //   0          CPU0 M-mode
-    //   0          CPU0 S-mode
-    nr_context = C906_NR_CONTEXT;
+    // Use only the M-mode context (0) because the firmware runs in M-mode and
+    // external interrupts are routed there.
+    nr_context = 1;
 
     c906_plic_regs = (void *)C906_PLIC_PHY_ADDR;
     if (!c906_plic_regs)
@@ -189,13 +187,6 @@ void plic_init(void)
 
         cpu = 0;
 
-        /* skip contexts other than supervisor external interrupt */
-        if (i == 0)
-        {
-            continue;
-        }
-
-        // we always use CPU0 M-mode target register.
         handler = &c906_plic_handlers[cpu];
         if (handler->present)
         {
