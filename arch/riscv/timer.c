@@ -6,11 +6,13 @@
  */
 
 #include <stdint.h>
-#include <stdio.h>
 #include "FreeRTOS.h"
 #include "csr.h"
 #include "rv_io.h"
 #include "clic.h"
+
+#define LOG_TAG "timer"
+#include "log.h"
 
 /* CLINT/CLIC timer configuration is set by clic_driver_init(). */
 
@@ -104,7 +106,7 @@ void riscv_timer_port_setup(void)
     unsigned long addr = clic_int_control_addr_comp;
 
     if (addr == 0) {
-        printf("riscv_timer_port_setup: invalid timer base\n");
+        LOGE("riscv_timer_port_setup: invalid timer base");
         return;
     }
 

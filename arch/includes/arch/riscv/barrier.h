@@ -1,21 +1,3 @@
-/*
- * ===========================================================================================
- *
- *       Filename:  barrier.h
- *
- *    Description:  barrier impl. of riscv
- *
- *        Version:  Melis3.0
- *         Create:  2020-07-08 14:35:53
- *       Revision:  none
- *       Compiler:  GCC:version 7.2.1 20170904 (release),ARM/embedded-7-branch revision 255204
- *
- *         Author:  caozilong@allwinnertech.com
- *   Organization:  BU1-PSW
- *  Last Modified:  2020-09-28 11:12:43
- *
- * ===========================================================================================
- */
 #ifndef _ASM_RISCV_BARRIER_H
 #define _ASM_RISCV_BARRIER_H
 

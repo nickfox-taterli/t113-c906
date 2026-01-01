@@ -2,7 +2,9 @@
 #include "rv_io.h"
 #include "delay.h"
 #include <stddef.h>
-#include <stdio.h>
+
+#define LOG_TAG "msgbox"
+#include "log.h"
 
 #define SUNXI_MSGBOX_OFFSET(n)             (0x100u * (n))
 #define SUNXI_MSGBOX_READ_IRQ_ENABLE(n)    (0x20u + SUNXI_MSGBOX_OFFSET(n))
@@ -63,8 +65,7 @@ int msgbox_init(struct msgbox *mb, int local_id, int remote_id, int channel,
 	if (!mb)
 		return -1;
 
-	printf("MSGBOX init: local=%d remote=%d channel=%d\n",
-	       local_id, remote_id, channel);
+	LOGI("init: local=%d remote=%d channel=%d", local_id, remote_id, channel);
 
 	mb->base[MSGBOX_ARM_ID] = 0x03003000;
 	mb->base[MSGBOX_DSP_ID] = 0x01701000;
@@ -81,35 +82,35 @@ int msgbox_init(struct msgbox *mb, int local_id, int remote_id, int channel,
 
 	if (mb->local_n < 0 || mb->remote_n < 0)
 	{
-		printf("MSGBOX init failed: local_n=%d remote_n=%d\n",
-		       mb->local_n, mb->remote_n);
+		LOGE("init failed: local_n=%d remote_n=%d",
+		     mb->local_n, mb->remote_n);
 		return -1;
 	}
 
-	printf("MSGBOX base: local=0x%lx remote=0x%lx local_n=%d remote_n=%d fifo_depth=%u\n",
-	       (unsigned long)mb->base[local_id],
-	       (unsigned long)mb->base[remote_id],
-	       mb->local_n, mb->remote_n, mb->fifo_depth);
+	LOGI("base: local=0x%lx remote=0x%lx local_n=%d remote_n=%d fifo_depth=%u",
+	     (unsigned long)mb->base[local_id],
+	     (unsigned long)mb->base[remote_id],
+	     mb->local_n, mb->remote_n, mb->fifo_depth);
 
 	/* Enable local RX IRQ for polling status */
 	reg_bits_set(msgbox_base(mb, local_id) +
 		     SUNXI_MSGBOX_READ_IRQ_ENABLE(mb->local_n),
 		     RD_IRQ_EN_MASK, RD_IRQ_EN_SHIFT(channel));
-	printf("MSGBOX step: local RX IRQ enabled (base=0x%lx n=%d p=%d)\n",
-	       (unsigned long)msgbox_base(mb, local_id), mb->local_n, channel);
+	LOGI("step: local RX IRQ enabled (base=0x%lx n=%d p=%d)",
+	     (unsigned long)msgbox_base(mb, local_id), mb->local_n, channel);
 
 	/* Clear stale pending bits and drain any data */
 	reg_bits_set(msgbox_base(mb, local_id) +
 		     SUNXI_MSGBOX_READ_IRQ_STATUS(mb->local_n),
 		     RD_IRQ_PEND_MASK, RD_IRQ_PEND_SHIFT(channel));
-	printf("MSGBOX step: local pending cleared\n");
+	LOGI("step: local pending cleared");
 
 	/* Drain any stale data without invoking callbacks (rproc not ready yet) */
 	msgbox_rx_cb saved_cb = mb->rx_cb;
 	mb->rx_cb = NULL;
 	msgbox_poll(mb);
 	mb->rx_cb = saved_cb;
-	printf("MSGBOX step: initial poll done\n");
+	LOGI("step: initial poll done");
 
 	/* Ensure remote side write IRQ pending cleared */
 	reg_bits_set(msgbox_base(mb, remote_id) +
@@ -118,15 +119,15 @@ int msgbox_init(struct msgbox *mb, int local_id, int remote_id, int channel,
 	reg_bits_clear(msgbox_base(mb, remote_id) +
 		       SUNXI_MSGBOX_WRITE_IRQ_ENABLE(mb->remote_n),
 		       WR_IRQ_EN_MASK, WR_IRQ_EN_SHIFT(channel));
-	printf("MSGBOX step: remote write IRQ cleared/disabled\n");
+	LOGI("step: remote write IRQ cleared/disabled");
 
 	/* Set write threshold to 1 message */
 	reg_bits_clear(msgbox_base(mb, remote_id) +
 		       SUNXI_MSGBOX_WRITE_IRQ_THRESHOLD(mb->remote_n, channel),
 		       0x3, 0);
-	printf("MSGBOX step: remote write threshold set to 1\n");
+	LOGI("step: remote write threshold set to 1");
 
-	printf("MSGBOX init done\n");
+	LOGI("init done");
 	return 0;
 }
 
@@ -153,8 +154,8 @@ int msgbox_send(struct msgbox *mb, uint32_t data)
 
 	if (!retry)
 	{
-		printf("MSGBOX send timeout: remote=%d n=%d p=%d\n",
-		       mb->remote_id, mb->remote_n, mb->channel);
+		LOGW("send timeout: remote=%d n=%d p=%d",
+		     mb->remote_id, mb->remote_n, mb->channel);
 		return -1;
 	}
 
@@ -162,7 +163,7 @@ int msgbox_send(struct msgbox *mb, uint32_t data)
 			      SUNXI_MSGBOX_MSG_FIFO(mb->remote_n,
 						    mb->channel)));
 	if (data != 0)
-		printf("MSGBOX send: vqid=%u\n", data);
+		LOGD("send: vqid=%u", data);
 	return 0;
 }
 

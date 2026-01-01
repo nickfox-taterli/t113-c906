@@ -5,11 +5,13 @@
  */
 
 #include <stdint.h>
-#include <stdio.h>
 #include "excep.h"
 #include "csr.h"
 #include "softirq.h"
 #include "plic.h"
+
+#define LOG_TAG "trap"
+#include "log.h"
 
 /**
  * riscv_trap_handler - Default exception/trap handler
@@ -28,8 +30,8 @@ unsigned long riscv_trap_handler(unsigned long mcause, unsigned long mepc,
 {
     (void)regs;
 
-    printf("Unhandled exception: mcause=0x%lx, mepc=0x%lx, mtval=0x%lx\n",
-           mcause, mepc, mtval);
+    LOGE("Unhandled exception: mcause=0x%lx, mepc=0x%lx, mtval=0x%lx",
+         mcause, mepc, mtval);
 
     /* Halt on unhandled exception */
     while (1) {

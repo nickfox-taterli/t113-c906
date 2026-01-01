@@ -7,7 +7,9 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "openamp/platform/platform.h"
-#include <stdio.h>
+
+#define LOG_TAG "main"
+#include "log.h"
 
 /* Global UART configuration */
 static uart_config_t uart_cfg;
@@ -24,14 +26,14 @@ static void main_task(void *pvParameters)
     (void)pvParameters;
     int ret;
 
-    printf("OpenAMP: init begin\n");
+    LOGI("OpenAMP: init begin");
     ret = platform_rproc_init(&openamp_ctx);
     if (ret) {
-        printf("OpenAMP init failed (%d)\n", ret);
+        LOGE("OpenAMP init failed (%d)", ret);
         goto halt;
     }
 
-    printf("OpenAMP init ok, echo ready.\n");
+    LOGI("OpenAMP init ok, echo ready.");
 
     /* Task main loop */
     while (1) {
@@ -40,7 +42,7 @@ static void main_task(void *pvParameters)
     }
 
 halt:
-    printf("OpenAMP task halted.\n");
+    LOGE("OpenAMP task halted.");
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -80,7 +82,7 @@ void start_kernel(void)
     /* Initialize hardware peripherals */
     low_level_init();
 
-    printf("Starting FreeRTOS on C906...\n");
+    LOGI("Starting FreeRTOS on C906...");
 
     /* Create main task */
     xReturned = xTaskCreate(
@@ -92,18 +94,18 @@ void start_kernel(void)
         NULL);                    /* Handle */
 
     if (xReturned == pdPASS) {
-        printf("Main task created successfully!\n");
+        LOGI("Main task created successfully!");
         /* Start FreeRTOS scheduler */
         vTaskStartScheduler();
 
         /* Should not reach here */
-        printf("Scheduler returned unexpectedly!\n");
+        LOGE("Scheduler returned unexpectedly!");
     } else {
-        printf("Failed to create main task!\n");
+        LOGE("Failed to create main task!");
     }
 
     /* System halt on failure */
-    printf("System halted!\n");
+    LOGE("System halted!");
     while (1) {
         /* Infinite loop */
     }

@@ -74,7 +74,7 @@ file(GLOB_RECURSE OPENAMP_SOURCES
 )
 
 set_source_files_properties(${OPENAMP_SOURCES} PROPERTIES
-    COMPILE_FLAGS "-Wno-error -Wno-unused-parameter -Wno-unused-variable -Wno-missing-field-initializers")
+    COMPILE_FLAGS "-DMETAL_INTERNAL -Wno-error -Wno-unused-parameter -Wno-unused-variable -Wno-missing-field-initializers")
 
 # FreeRTOS core source files
 set(FREERTOS_CORE_SOURCES
