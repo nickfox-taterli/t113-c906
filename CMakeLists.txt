@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(c906-fw C ASM)
+add_compile_definitions(VIRTIO_CACHED_VRINGS)
 
 # ============================================================================
 # IMPORTANT: Please modify the toolchain path below according to your actual environment
@@ -42,6 +43,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/hal/includes
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Source/include
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Source/portable/GCC/RISC-V
+    ${CMAKE_CURRENT_SOURCE_DIR}/openamp/include
 )
 
 # Linker flags
@@ -64,6 +66,15 @@ file(GLOB_RECURSE HAL_SOURCES
 file(GLOB_RECURSE ARCH_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/arch/riscv/*.c
 )
+
+file(GLOB_RECURSE OPENAMP_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/openamp/libmetal/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/openamp/open-amp/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/openamp/platform/*.c
+)
+
+set_source_files_properties(${OPENAMP_SOURCES} PROPERTIES
+    COMPILE_FLAGS "-Wno-error -Wno-unused-parameter -Wno-unused-variable -Wno-missing-field-initializers")
 
 # FreeRTOS core source files
 set(FREERTOS_CORE_SOURCES
@@ -97,6 +108,7 @@ set(ALL_C_SOURCES
     ${CORE_SOURCES}
     ${HAL_SOURCES}
     ${ARCH_SOURCES}
+    ${OPENAMP_SOURCES}
     ${FREERTOS_CORE_SOURCES}
     ${FREERTOS_PORT_SOURCES}
     ${FREERTOS_MEM_SOURCES}

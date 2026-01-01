@@ -1,5 +1,4 @@
-#include <openamp/sunxi_helper/shmem_ops.h>
-#include "rsc_tab.h"
+#include "rsc_table.h"
 
 #define RPMSG_IPU_C0_FEATURES			1
 
@@ -91,4 +90,3 @@ struct fw_rsc_vdev *resource_table_get_vdev(int index)
 {
 	return &resource_table.vdev;
 }
-

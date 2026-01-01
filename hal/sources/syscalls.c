@@ -154,6 +154,36 @@ _off_t _lseek_r(struct _reent *ptr, int fd, _off_t pos, int whence)
 }
 
 /**
+ * @brief Exit program (required by newlib)
+ */
+void _exit(int status)
+{
+    (void)status;
+    while (1) {
+        /* Halt */
+    }
+}
+
+/**
+ * @brief Kill process stub (required by newlib)
+ */
+int _kill(int pid, int sig)
+{
+    (void)pid;
+    (void)sig;
+    errno = ENOSYS;
+    return -1;
+}
+
+/**
+ * @brief Get process ID stub (required by newlib)
+ */
+int _getpid(void)
+{
+    return 1;
+}
+
+/**
  * @brief Increase heap space
  * @param ptr Reentrant structure pointer
  * @param incr Number of bytes to increase

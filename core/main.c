@@ -6,10 +6,12 @@
 #include "timer.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "openamp/platform/platform.h"
 #include <stdio.h>
 
 /* Global UART configuration */
 static uart_config_t uart_cfg;
+static struct openamp_platform openamp_ctx;
 
 /**
  * main_task - Main FreeRTOS task
@@ -20,11 +22,27 @@ static uart_config_t uart_cfg;
 static void main_task(void *pvParameters)
 {
     (void)pvParameters;
+    int ret;
+
+    printf("OpenAMP: init begin\n");
+    ret = platform_rproc_init(&openamp_ctx);
+    if (ret) {
+        printf("OpenAMP init failed (%d)\n", ret);
+        goto halt;
+    }
+
+    printf("OpenAMP init ok, echo ready.\n");
 
     /* Task main loop */
     while (1) {
-        printf("Hello C906 FreeRTOS %ld\n", xTaskGetTickCount());
-        vTaskDelay(pdMS_TO_TICKS(500));
+        platform_poll(&openamp_ctx);
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+
+halt:
+    printf("OpenAMP task halted.\n");
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
@@ -68,7 +86,7 @@ void start_kernel(void)
     xReturned = xTaskCreate(
         main_task,                /* Task function */
         "MainTask",               /* Task name */
-        configMINIMAL_STACK_SIZE, /* Stack size */
+        configMINIMAL_STACK_SIZE * 8, /* Stack size */
         NULL,                     /* Parameters */
         tskIDLE_PRIORITY + 1,     /* Priority */
         NULL);                    /* Handle */
