@@ -2,10 +2,13 @@ cmake_minimum_required(VERSION 3.10)
 project(c906-fw C ASM)
 add_compile_definitions(VIRTIO_CACHED_VRINGS)
 
+# Disable linker dependency file generation for older binutils
+set(CMAKE_LINK_DEPENDS_NO_SHARED 1)
+
 # ============================================================================
 # IMPORTANT: Please modify the toolchain path below according to your actual environment
 # ============================================================================
-set(TOOLCHAIN_PATH "/root/tina5.0_v1.0/rtos/lichee/rtos/tools/riscv64-elf-x86_64-20201104")
+set(TOOLCHAIN_PATH "/root/t113/lichee/rtos/tools/riscv64-elf-x86_64-20201104")
 set(CMAKE_C_COMPILER "${TOOLCHAIN_PATH}/bin/riscv64-unknown-elf-gcc")
 set(CMAKE_ASM_COMPILER "${TOOLCHAIN_PATH}/bin/riscv64-unknown-elf-gcc")
 set(CMAKE_OBJCOPY "${TOOLCHAIN_PATH}/bin/riscv64-unknown-elf-objcopy")
